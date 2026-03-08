@@ -10,8 +10,9 @@ package models
 //	        = "SEASON#<season>#<season_type>#WEEK#0"              (yearly)
 //
 // SK component order (type → season → season_type → week) allows prefix queries:
-//   begins_with("STAT#offense_yearly#2024")        → all 2024 yearly rows (REG + POST)
-//   begins_with("STAT#offense_yearly#2024#REG")    → 2024 regular season only
+//
+//	begins_with("STAT#offense_yearly#2024")        → all 2024 yearly rows (REG + POST)
+//	begins_with("STAT#offense_yearly#2024#REG")    → 2024 regular season only
 //
 // season_type is included in the yearly SK because the source data provides both
 // REG and POST totals for the same player+season; without it they would collide.
