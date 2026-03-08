@@ -1,0 +1,103 @@
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least-privilege token permissions for the GITHUB_TOKEN (the token GitHub
+# issues to the workflow itself, separate from AWS credentials).
+# id-token: write is REQUIRED for OIDC — without it the workflow cannot
+# request a JWT from GitHub's OIDC endpoint to exchange for AWS credentials.
+# contents: read allows checking out the repo.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ── CI: runs on every PR ──────────────────────────────────────────────────
+  # Validates that the code compiles and tests pass before allowing a merge.
+  # No AWS credentials needed — this is purely local Go toolchain work.
+  # Once branch protection status checks are enabled, this job must pass
+  # before the PR can be merged.
+  ci:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25' # matches go.mod — update if you bump the module
+
+      - name: Format check
+        # gofmt exits non-zero if any files need formatting.
+        # -l lists files that differ; -e reports all errors.
+        run: |
+          unformatted=$(gofmt -l ./...)
+          if [ -n "$unformatted" ]; then
+            echo "The following files need formatting (run 'go fmt ./...'):"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Build ingestor
+        run: go build ./cmd/ingestor/...
+
+      - name: Build Lambda
+        # Validates that the Lambda binary compiles for the target runtime.
+        # GOOS/GOARCH ensure we're cross-compiling for Linux x86 even though
+        # the runner is already Linux x86 — makes the intent explicit.
+        run: GOOS=linux GOARCH=amd64 go build ./cmd/lambda/...
+
+      - name: Test
+        run: go test ./...
+
+  # ── Deploy: runs only on push to main (after PR merge) ───────────────────
+  # Assumes the OIDC role, builds the Lambda zip, and runs terraform apply.
+  # This job cannot be triggered by PRs — the trust policy's sub claim
+  # condition rejects any JWT not from a main branch push.
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Build Lambda zip
+        # Must run before terraform steps — Terraform reads filemd5() and
+        # filebase64sha256() from bin/function.zip at plan time. If the zip
+        # doesn't exist, terraform plan errors before any AWS call is made.
+        run: make build-lambda
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # AWS_ROLE_ARN is stored as a GitHub repository secret.
+          # It is not sensitive (an ARN grants no access by itself) but
+          # storing it as a secret is good hygiene — it prevents the value
+          # from appearing in PR comments or workflow logs.
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          # role-session-name appears in CloudTrail logs, making it easy to
+          # trace which workflow run made which AWS API calls.
+          role-session-name: github-actions-deploy-${{ github.run_id }}
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: terraform
+        # -auto-approve skips the interactive "yes" prompt.
+        # Safe here because: branch protection ensures this only runs on main,
+        # and the OIDC trust ensures only your repo can reach this step.
+        run: terraform apply -auto-approve
