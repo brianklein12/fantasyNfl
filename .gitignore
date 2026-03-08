@@ -30,3 +30,26 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Binaries
+bin/
+main
+
+# Data (Kaggle CSVs)
+data/*.csv
+
+# Local Environment
+.env
+docker-compose.override.yml
+
+# Terraform local state and plan files
+# .terraform/ contains provider binaries downloaded by terraform init
+# *.tfplan files can contain sensitive resource values — never commit them
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+# AWS CLI bundle — install separately, not version-controlled
+# This directory contains the bundled CLI binary (~200MB) and is not source code
+aws/

@@ -1,0 +1,15 @@
+services:
+  # The Local DynamoDB Service
+  dynamodb-local:
+    image: amazon/dynamodb-local
+    container_name: dynamodb-local
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+
+  # The Local Memcached Service
+  memcached:
+    image: memcached:alpine
+    container_name: memcached-local
+    ports:
+      - "11211:11211"
