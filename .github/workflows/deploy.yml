@@ -91,6 +91,12 @@ jobs:
           # trace which workflow run made which AWS API calls.
           role-session-name: github-actions-deploy-${{ github.run_id }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.6"
+          terraform_wrapper: false
+
       - name: Terraform init
         working-directory: terraform
         run: terraform init
