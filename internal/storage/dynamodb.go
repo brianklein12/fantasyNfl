@@ -23,7 +23,7 @@ const (
 	// DynamoDB returns HTTP 200 even for throttled items; they appear in
 	// UnprocessedItems rather than as an error. We retry those items with
 	// exponential backoff so the service has time to recover capacity.
-	maxRetryAttempts = 8                    // up to ~25 s of cumulative wait
+	maxRetryAttempts = 8 // up to ~25 s of cumulative wait
 	baseRetryDelay   = 100 * time.Millisecond
 	maxRetryDelay    = 30 * time.Second
 )

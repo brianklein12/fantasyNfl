@@ -37,7 +37,7 @@ jobs:
         # gofmt exits non-zero if any files need formatting.
         # -l lists files that differ; -e reports all errors.
         run: |
-          unformatted=$(gofmt -l ./...)
+          unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
             echo "The following files need formatting (run 'go fmt ./...'):"
             echo "$unformatted"
